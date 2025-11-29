@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mect VPN Monitor Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #68D391;
+        }
+
+        .toggle-checkbox:checked+.toggle-label {
+            background-color: #68D391;
+        }
+
+        .fade-enter-active,
+        .fade-leave-active {
+            transition: opacity 0.3s ease;
+        }
+
+        .fade-enter-from,
+        .fade-leave-to {
+            opacity: 0;
+        }
+    </style>
+    <script>
+        tailwind.config = { theme: { extend: { colors: { dark: { 900: '#0f172a', 800: '#1e293b', 700: '#334155' }, brand: { 500: '#3b82f6', 600: '#2563eb' } } } } }
+    </script>
+</head>
+
+<body class="bg-dark-900 text-white min-h-screen">
+    <div id="app" class="container mx-auto px-4 py-8">
+
+        <!-- Login Screen -->
+        <div v-if="!isLoggedIn" class="flex items-center justify-center min-h-[80vh]">
+            <div class="glass p-8 rounded-2xl w-full max-w-md">
+                <h1
+                    class="text-3xl font-bold mb-2 text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+                    Mect VPN Monitor</h1>
+                <p class="text-gray-400 text-center mb-8">Sign in to manage servers</p>
+                <form @submit.prevent="login">
+                    <div class="mb-4">
+                        <label class="block text-sm text-gray-400 mb-2">Username</label>
+                        <input v-model="loginForm.username" type="text"
+                            class="w-full bg-dark-800 border border-dark-700 rounded-lg p-3 focus:border-blue-500 focus:outline-none transition-colors"
+                            required>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm text-gray-400 mb-2">Password</label>
+                        <input v-model="loginForm.password" type="password"
+                            class="w-full bg-dark-800 border border-dark-700 rounded-lg p-3 focus:border-blue-500 focus:outline-none transition-colors"
+                            required>
+                    </div>
+                    <button type="submit" :disabled="loading"
+                        class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-colors flex justify-center items-center">
+                        <i v-if="loading" class="ph ph-spinner animate-spin mr-2"></i>
+                        {{ loading ? 'Signing In...' : 'Sign In' }}
+                    </button>
+                    <p v-if="error" class="text-red-400 text-sm text-center mt-4">{{ error }}</p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div v-else>
+            <header class="flex justify-between items-center mb-10">
+                <div>
+                    <h1
+                        class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+                        Mect VPN Monitor</h1>
+                    <p class="text-gray-400 text-sm mt-1">Welcome, {{ user.username }} ({{ user.role }})</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button @click="showPasswordModal = true"
+                        class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors flex items-center gap-2">
+                        <i class="ph ph-key"></i> Change Password
+                    </button>
+                    <button v-if="user.role === 'superadmin'" @click="showUserModal = true"
+                        class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 transition-colors flex items-center gap-2">
+                        <i class="ph ph-users"></i> Users
+                    </button>
+                    <button @click="logout"
+                        class="px-4 py-2 rounded-lg bg-dark-800 hover:bg-red-500/20 hover:text-red-400 transition-colors flex items-center gap-2">
+                        <i class="ph ph-sign-out"></i> Logout
+                    </button>
+                </div>
+            </header>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+                <div class="glass rounded-2xl p-6">
+                    <div class="text-gray-400 text-sm mb-2">Total Servers</div>
+                    <div class="text-3xl font-bold">{{ servers.length }}</div>
+                </div>
+                <div class="glass rounded-2xl p-6">
+                    <div class="text-gray-400 text-sm mb-2">Active Sessions</div>
+                    <div class="text-3xl font-bold text-green-400">{{ activeServers }}</div>
+                </div>
+                <div class="glass rounded-2xl p-6">
+                    <div class="text-gray-400 text-sm mb-2">Avg CPU Load</div>
+                    <div class="text-3xl font-bold text-blue-400">{{ avgCpu }}%</div>
+                </div>
+                <div class="glass rounded-2xl p-6">
+                    <div class="text-gray-400 text-sm mb-2">Avg Network</div>
+                    <div class="text-3xl font-bold text-purple-400">{{ avgNet }}%</div>
+                </div>
+            </div>
+
+            <!-- Servers -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div v-for="server in servers" :key="server.ip"
+                    :class="{'opacity-50 grayscale': server.enabled === false}"
+                    class="glass rounded-2xl p-6 hover:border-blue-500/30 transition-all duration-300">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xl font-bold shadow-lg shadow-blue-500/20">
+                                {{ server.countryCode || 'UN' }}
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-bold text-lg">{{ server.hostname || server.city || 'Unknown' }}</h3>
+                                    <span class="text-xs bg-white/10 px-1.5 py-0.5 rounded text-gray-300 font-mono">{{
+                                        server.server_id || 'NEW' }}</span>
+                                </div>
+                                <div class="text-xs text-gray-400 font-mono flex items-center gap-2">
+                                    <span>{{ server.ip }}</span><span
+                                        class="w-1 h-1 rounded-full bg-gray-600"></span><span>{{ server.city }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end gap-2">
+                            <div class="flex items-center gap-2">
+                                <button v-if="canEdit" @click.stop="toggleConfig(server, 'enabled')"
+                                    :class="server.enabled !== false ? 'bg-blue-600' : 'bg-gray-700'"
+                                    class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none">
+                                    <span :class="server.enabled !== false ? 'translate-x-4' : 'translate-x-1'"
+                                        class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform"></span>
+                                </button>
+                                <div :class="{'bg-green-500/20 text-green-400 border-green-500/30': server.status === 'active', 'bg-red-500/20 text-red-400 border-red-500/30': server.status !== 'active'}"
+                                    class="px-2.5 py-0.5 rounded-full text-xs font-bold border">{{
+                                    server.status.toUpperCase() }}</div>
+                            </div>
+                            <div class="text-[10px] text-gray-500 font-mono text-right">
+                                <div>Seen: {{ timeAgo(server.last_heartbeat) }}</div>
+                                <div>Added: {{ formatDate(server.first_heartbeat) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 mb-4">
+                        <div class="bg-dark-800/50 rounded-lg p-3 text-center border border-white/5">
+                            <div class="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">CPU</div>
+                            <div class="font-bold text-lg" :class="getLoadColor(server.load?.cpu)">{{ server.load?.cpu
+                                || 0 }}%</div>
+                        </div>
+                        <div class="bg-dark-800/50 rounded-lg p-3 text-center border border-white/5">
+                            <div class="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">RAM</div>
+                            <div class="font-bold text-lg" :class="getLoadColor(server.load?.ram)">{{ server.load?.ram
+                                || 0 }}%</div>
+                        </div>
+                        <div class="bg-dark-800/50 rounded-lg p-3 text-center border border-white/5">
+                            <div class="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">NET</div>
+                            <div class="font-bold text-lg" :class="getLoadColor(server.load?.net)">{{ server.load?.net
+                                || 0 }}%</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 mb-4 flex-wrap">
+                        <span v-for="svc in server.services" :key="svc.name"
+                            :class="svc.active ? 'text-green-400 bg-green-400/10 border-green-400/20' : 'text-red-400 bg-red-400/10 border-red-400/20'"
+                            class="px-2 py-1 rounded text-[10px] font-bold border tracking-wide">{{
+                            svc.name.toUpperCase() }}</span>
+                    </div>
+                    <div v-if="canEdit" class="border-t border-gray-700/50 pt-4 grid grid-cols-3 gap-2">
+                        <button @click="toggleConfig(server, 'gaming')"
+                            :class="server.gaming ? 'bg-purple-600/20 border-purple-500/50 text-purple-300' : 'bg-dark-800 border-white/5 text-gray-500'"
+                            class="flex flex-col items-center justify-center p-2 rounded-lg border transition-all hover:bg-purple-600/10"><i
+                                class="ph ph-game-controller text-xl mb-1"></i><span
+                                class="text-[10px] font-bold">GAMING</span></button>
+                        <button @click="toggleConfig(server, 'streaming')"
+                            :class="server.streaming ? 'bg-pink-600/20 border-pink-500/50 text-pink-300' : 'bg-dark-800 border-white/5 text-gray-500'"
+                            class="flex flex-col items-center justify-center p-2 rounded-lg border transition-all hover:bg-pink-600/10"><i
+                                class="ph ph-film-strip text-xl mb-1"></i><span
+                                class="text-[10px] font-bold">STREAM</span></button>
+                        <button @click="toggleConfig(server, 'paid')"
+                            :class="server.paid ? 'bg-green-600/20 border-green-500/50 text-green-300' : 'bg-dark-800 border-white/5 text-gray-500'"
+                            class="flex flex-col items-center justify-center p-2 rounded-lg border transition-all hover:bg-green-600/10"><i
+                                class="ph ph-currency-dollar text-xl mb-1"></i><span
+                                class="text-[10px] font-bold">PAID</span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Change Password Modal -->
+        <div v-if="showPasswordModal"
+            class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+            <div class="glass p-8 rounded-2xl w-full max-w-md">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Change Password</h2>
+                    <button @click="showPasswordModal = false" class="text-gray-400 hover:text-white"><i
+                            class="ph ph-x text-xl"></i></button>
+                </div>
+                <form @submit.prevent="changePassword">
+                    <div class="mb-4">
+                        <label class="block text-sm text-gray-400 mb-2">Current Password</label>
+                        <input v-model="passwordForm.old" type="password"
+                            class="w-full bg-dark-800 border border-dark-700 rounded-lg p-3 focus:border-blue-500 focus:outline-none"
+                            required>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm text-gray-400 mb-2">New Password</label>
+                        <input v-model="passwordForm.new" type="password"
+                            class="w-full bg-dark-800 border border-dark-700 rounded-lg p-3 focus:border-blue-500 focus:outline-none"
+                            required>
+                    </div>
+                    <button type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-semibold">Change
+                        Password</button>
+                    <p v-if="passwordMessage"
+                        :class="passwordMessage.includes('success') ? 'text-green-400' : 'text-red-400'"
+                        class="text-sm text-center mt-4">{{ passwordMessage }}</p>
+                </form>
+            </div>
+        </div>
+
+        <!-- User Management Modal -->
+        <div v-if="showUserModal"
+            class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+            <div class="glass p-8 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">User Management</h2>
+                    <button @click="showUserModal = false" class="text-gray-400 hover:text-white"><i
+                            class="ph ph-x text-xl"></i></button>
+                </div>
+                <form @submit.prevent="createUser" class="mb-8 bg-dark-800/50 p-4 rounded-xl">
+                    <h3 class="font-semibold mb-4">Add New User</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <input v-model="newUser.username" placeholder="Username"
+                            class="bg-dark-900 border border-dark-700 rounded-lg p-2 text-sm" required>
+                        <input v-model="newUser.password" type="password" placeholder="Password"
+                            class="bg-dark-900 border border-dark-700 rounded-lg p-2 text-sm" required>
+                        <select v-model="newUser.role"
+                            class="bg-dark-900 border border-dark-700 rounded-lg p-2 text-sm">
+                            <option value="readonly">Read Only</option>
+                            <option value="admin">Admin</option>
+                            <!-- <option value="superadmin">Super Admin</option> -->
+                        </select>
+                    </div>
+                    <button type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-500 py-2 rounded-lg text-sm font-semibold">Create
+                        User</button>
+                </form>
+                <div class="space-y-3">
+                    <div v-for="u in userList" :key="u.username"
+                        class="flex justify-between items-center bg-dark-800/30 p-4 rounded-xl border border-white/5">
+                        <div>
+                            <div class="font-semibold">{{ u.username }}</div>
+                            <div class="text-xs text-gray-400 uppercase">{{ u.role }}</div>
+                        </div>
+                        <button v-if="u.username !== 'admin'" @click="deleteUser(u.username)"
+                            class="text-red-400 hover:text-red-300 p-2"><i class="ph ph-trash"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted, reactive } = Vue;
+        createApp({
+            setup() {
+                const API_URL = '';
+                const token = ref(localStorage.getItem('token'));
+                const user = ref(JSON.parse(localStorage.getItem('user') || '{}'));
+                const servers = ref([]);
+                const userList = ref([]);
+                const loginForm = reactive({ username: '', password: '' });
+                const newUser = reactive({ username: '', password: '', role: 'readonly' });
+                const passwordForm = reactive({ old: '', new: '' });
+                const loading = ref(false);
+                const error = ref('');
+                const showUserModal = ref(false);
+                const showPasswordModal = ref(false);
+                const passwordMessage = ref('');
+
+                const isLoggedIn = computed(() => !!token.value);
+                const canEdit = computed(() => ['admin', 'superadmin'].includes(user.value.role));
+                const activeServers = computed(() => servers.value.filter(s => s.status === 'active').length);
+                const avgCpu = computed(() => servers.value.length ? (servers.value.reduce((acc, s) => acc + (s.load?.cpu || 0), 0) / servers.value.length).toFixed(1) : 0);
+                const avgNet = computed(() => servers.value.length ? (servers.value.reduce((acc, s) => acc + (s.load?.net || 0), 0) / servers.value.length).toFixed(1) : 0);
+
+                const headers = () => ({ 'Authorization': `Bearer ${token.value}`, 'Content-Type': 'application/json' });
+
+                const timeAgo = (dateString) => {
+                    if (!dateString) return 'Never';
+                    const utcString = dateString.endsWith('Z') ? dateString : dateString + 'Z';
+                    const date = new Date(utcString);
+                    const now = new Date();
+                    const seconds = Math.floor((now - date) / 1000);
+                    if (seconds < 60) return `${seconds}s ago`;
+                    const minutes = Math.floor(seconds / 60);
+                    if (minutes < 60) return `${minutes}m ago`;
+                    const hours = Math.floor(minutes / 60);
+                    if (hours < 24) return `${hours}h ago`;
+                    const days = Math.floor(hours / 24);
+                    return `${days}d ago`;
+                };
+
+                const formatDate = (dateString) => {
+                    if (!dateString) return 'Unknown';
+                    const utcString = dateString.endsWith('Z') ? dateString : dateString + 'Z';
+                    return new Date(utcString).toLocaleDateString();
+                };
+
+                const login = async () => {
+                    loading.value = true;
+                    error.value = '';
+                    try {
+                        const formData = new FormData();
+                        formData.append('username', loginForm.username);
+                        formData.append('password', loginForm.password);
+                        const res = await fetch(`${API_URL}/token`, { method: 'POST', body: formData });
+                        if (!res.ok) throw new Error('Invalid credentials');
+                        const data = await res.json();
+                        token.value = data.access_token;
+                        localStorage.setItem('token', data.access_token);
+                        const userRes = await fetch(`${API_URL}/users/me`, { headers: headers() });
+                        const userData = await userRes.json();
+                        user.value = userData;
+                        localStorage.setItem('user', JSON.stringify(userData));
+                        fetchServers();
+                    } catch (e) {
+                        error.value = e.message;
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const logout = () => {
+                    token.value = null;
+                    user.value = {};
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                };
+
+                const fetchServers = async () => {
+                    if (!token.value) return;
+                    try {
+                        const res = await fetch(`${API_URL}/servers?all_servers=true`, { headers: headers() });
+                        if (res.status === 401) return logout();
+                        if (res.ok) servers.value = await res.json();
+                    } catch (e) { console.error(e); }
+                };
+
+                const toggleConfig = async (server, field) => {
+                    const newValue = server[field] === undefined ? true : !server[field];
+                    server[field] = newValue;
+                    try {
+                        const res = await fetch(`${API_URL}/server/${server.ip}/config`, { method: 'PATCH', headers: headers(), body: JSON.stringify({ [field]: newValue }) });
+                        if (!res.ok) server[field] = !newValue;
+                    } catch (e) { server[field] = !newValue; }
+                };
+
+                const changePassword = async () => {
+                    passwordMessage.value = '';
+                    try {
+                        const res = await fetch(`${API_URL}/users/change-password?old_password=${encodeURIComponent(passwordForm.old)}&new_password=${encodeURIComponent(passwordForm.new)}`, { method: 'POST', headers: headers() });
+                        if (res.ok) {
+                            passwordMessage.value = '✅ Password changed successfully!';
+                            passwordForm.old = '';
+                            passwordForm.new = '';
+                            setTimeout(() => { showPasswordModal.value = false; passwordMessage.value = ''; }, 2000);
+                        } else {
+                            const data = await res.json();
+                            passwordMessage.value = `❌ ${data.detail || 'Failed to change password'}`;
+                        }
+                    } catch (e) {
+                        passwordMessage.value = `❌ Error: ${e.message}`;
+                    }
+                };
+
+                const fetchUsers = async () => {
+                    if (user.value.role !== 'superadmin') return;
+                    try {
+                        const res = await fetch(`${API_URL}/users`, { headers: headers() });
+                        if (res.ok) userList.value = await res.json();
+                    } catch (e) { console.error(e); }
+                };
+
+                const createUser = async () => {
+                    try {
+                        const res = await fetch(`${API_URL}/users`, { method: 'POST', headers: headers(), body: JSON.stringify(newUser) });
+                        if (res.ok) {
+                            newUser.username = '';
+                            newUser.password = '';
+                            newUser.role = 'readonly';
+                            fetchUsers();
+                        } else {
+                            alert('Failed to create user');
+                        }
+                    } catch (e) { alert('Error creating user'); }
+                };
+
+                const deleteUser = async (username) => {
+                    if (!confirm(`Delete user ${username}?`)) return;
+                    try {
+                        const res = await fetch(`${API_URL}/users/${username}`, { method: 'DELETE', headers: headers() });
+                        if (res.ok) fetchUsers();
+                    } catch (e) { alert('Error deleting user'); }
+                };
+
+                Vue.watch(showUserModal, (val) => { if (val) fetchUsers(); });
+
+                onMounted(() => {
+                    if (token.value) fetchServers();
+                    setInterval(fetchServers, 5000);
+                });
+
+                return {
+                    token, user, servers, userList, loginForm, newUser, passwordForm, loading, error, showUserModal, showPasswordModal, passwordMessage,
+                    isLoggedIn, canEdit, activeServers, avgCpu, avgNet,
+                    login, logout, toggleConfig, changePassword, createUser, deleteUser, timeAgo, formatDate,
+                    getLoadColor: (val) => (!val ? 'text-gray-400' : val > 80 ? 'text-red-400' : val > 50 ? 'text-yellow-400' : 'text-green-400')
+                };
+            }
+        }).mount('#app');
+    </script>
