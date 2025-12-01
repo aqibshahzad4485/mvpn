@@ -86,7 +86,7 @@ cat > /etc/wireguard/wg0.conf <<EOF
 # Mect VPN - Enterprise Security
 
 [Interface]
-Address = $WG_SERVER_IP/24
+Address = $WG_SERVER_IP/16
 ListenPort = $WG_PORT
 PrivateKey = $SERVER_PRIVATE_KEY
 
@@ -99,17 +99,17 @@ PostUp = iptables -t nat -A POSTROUTING -o $NIC -j MASQUERADE
 PostUp = iptables -A FORWARD -i wg0 -o wg0 -j DROP
 
 # PRIVATE NETWORK PROTECTION - Block access to private networks
-PostUp = iptables -A FORWARD -s 10.9.0.0/24 -d 192.168.0.0/16 -j DROP
-PostUp = iptables -A FORWARD -s 10.9.0.0/24 -d 172.16.0.0/12 -j DROP
-PostUp = iptables -A FORWARD -s 10.9.0.0/24 -d 10.0.0.0/8 ! -d 10.9.0.0/24 -j DROP
+PostUp = iptables -A FORWARD -s 10.9.0.0/16 -d 192.168.0.0/16 -j DROP
+PostUp = iptables -A FORWARD -s 10.9.0.0/16 -d 172.16.0.0/12 -j DROP
+PostUp = iptables -A FORWARD -s 10.9.0.0/16 -d 10.0.0.0/8 -j DROP
 
 PostDown = iptables -D FORWARD -i wg0 -j ACCEPT
 PostDown = iptables -D FORWARD -o wg0 -j ACCEPT
-PostDown = iptables -t nat -D POSTROUTING -o $NIC -j MASQUERADE
+PostDown = iptables -D nat -D POSTROUTING -o $NIC -j MASQUERADE
 PostDown = iptables -D FORWARD -i wg0 -o wg0 -j DROP
-PostDown = iptables -D FORWARD -s 10.9.0.0/24 -d 192.168.0.0/16 -j DROP
-PostDown = iptables -D FORWARD -s 10.9.0.0/24 -d 172.16.0.0/12 -j DROP
-PostDown = iptables -D FORWARD -s 10.9.0.0/24 -d 10.0.0.0/8 ! -d 10.9.0.0/24 -j DROP
+PostDown = iptables -D FORWARD -s 10.9.0.0/16 -d 192.168.0.0/16 -j DROP
+PostDown = iptables -D FORWARD -s 10.9.0.0/16 -d 172.16.0.0/12 -j DROP
+PostDown = iptables -D FORWARD -s 10.9.0.0/16 -d 10.0.0.0/8 -j DROP
 
 # Client configuration
 [Peer]
@@ -141,7 +141,7 @@ echo -e "${YELLOW}Generating client configuration...${NC}"
 cat > /root/wg0-client.conf <<EOF
 [Interface]
 PrivateKey = $CLIENT_PRIVATE_KEY
-Address = $WG_CLIENT_IP/24
+Address = $WG_CLIENT_IP/16
 DNS = $DNS1, $DNS2
 
 [Peer]
@@ -204,7 +204,7 @@ wg-quick up wg0
 cat > /root/${CLIENT_NAME}.conf <<EOF
 [Interface]
 PrivateKey = $CLIENT_PRIVATE_KEY
-Address = $CLIENT_IP/24
+Address = $CLIENT_IP/16
 DNS = 1.1.1.1, 1.0.0.1
 
 [Peer]

@@ -43,12 +43,43 @@ mkdir -p "$(dirname "$LOG_FILE")"
 # Generate UUID
 NEW_UUID=$(cat /proc/sys/kernel/random/uuid)
 
-# Get server info
-DOMAIN=$(grep "server_name" /etc/nginx/sites-available/xray 2>/dev/null | head -1 | awk '{print $2}' | tr -d ';')
-WS_PATH=$(grep "location" /etc/nginx/sites-available/xray 2>/dev/null | grep -v "/" | head -1 | awk '{print $2}')
+# Get server info from xray config or try multiple sources
+DOMAIN=""
+WS_PATH=""
 
-if [ -z "$DOMAIN" ] || [ -z "$WS_PATH" ]; then
-    echo "Error: V2Ray configuration not found"
+# Try to get from nginx config (multiple possible locations)
+if [ -f "/etc/nginx/sites-available/xray" ]; then
+    DOMAIN=$(grep "server_name" /etc/nginx/sites-available/xray 2>/dev/null | head -1 | awk '{print $2}' | tr -d ';')
+    WS_PATH=$(grep "location" /etc/nginx/sites-available/xray 2>/dev/null | grep -v "/" | head -1 | awk '{print $2}')
+elif [ -f "/etc/nginx/conf.d/xray.conf" ]; then
+    DOMAIN=$(grep "server_name" /etc/nginx/conf.d/xray.conf 2>/dev/null | head -1 | awk '{print $2}' | tr -d ';')
+    WS_PATH=$(grep "location" /etc/nginx/conf.d/xray.conf 2>/dev/null | grep -v "/" | head -1 | awk '{print $2}')
+fi
+
+# If still empty, try to extract from xray config
+if [ -z "$DOMAIN" ] && [ -f "$XRAY_CONFIG" ]; then
+    # Try to get from existing client if any
+    EXISTING_LINK=$(find /etc/mvpn/profiles/v2ray -name "*.txt" -type f 2>/dev/null | head -1)
+    if [ -n "$EXISTING_LINK" ]; then
+        DOMAIN=$(grep "^Domain:" "$EXISTING_LINK" | awk '{print $2}')
+        WS_PATH=$(grep "^- Path:" "$EXISTING_LINK" | head -1 | awk '{print $3}')
+    fi
+fi
+
+# If still empty, ask user
+if [ -z "$DOMAIN" ]; then
+    echo "V2Ray domain not found in configuration."
+    read -p "Enter your V2Ray domain: " DOMAIN
+fi
+
+if [ -z "$WS_PATH" ]; then
+    # Generate a random path if not found
+    WS_PATH="/$(openssl rand -hex 8)"
+    echo "Using generated WebSocket path: $WS_PATH"
+fi
+
+if [ -z "$DOMAIN" ]; then
+    echo "Error: Domain is required for V2Ray"
     exit 1
 fi
 

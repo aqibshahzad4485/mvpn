@@ -35,12 +35,16 @@ PROFILES_DIR="/etc/mvpn/profiles"
 LOG_DIR="/var/log/mvpn"
 CONFIG_DIR="/etc/mvpn/config"
 
-# Log file
-SETUP_LOG="$LOG_DIR/setup/install-$(date +%Y%m%d-%H%M%S).log"
+# Log file will be initialized after directory creation
+SETUP_LOG=""
 
 # Logging function
 log() {
-    echo -e "${2:-$NC}$1${NC}" | tee -a "$SETUP_LOG"
+    if [ -n "$SETUP_LOG" ]; then
+        echo -e "${2:-$NC}$1${NC}" | tee -a "$SETUP_LOG"
+    else
+        echo -e "${2:-$NC}$1${NC}"
+    fi
 }
 
 log_error() {
@@ -76,12 +80,12 @@ echo ""
 
 # Check root
 if [[ $EUID -ne 0 ]]; then
-   log_error "This script must be run as root"
+   echo -e "${RED}This script must be run as root${NC}"
    exit 1
 fi
 
-# Create directory structure
-log_info "Creating directory structure..."
+# Create directory structure FIRST (before any logging)
+echo -e "${BLUE}→ Creating directory structure...${NC}"
 mkdir -p "$MVPN_DIR"/{scripts,bin,lib}
 mkdir -p "$PROFILES_DIR"/{openvpn,wireguard,squid,v2ray}
 mkdir -p "$LOG_DIR"/{setup,openvpn,wireguard,squid,v2ray,security}
@@ -90,6 +94,10 @@ chmod 755 "$MVPN_DIR"
 chmod 750 "$PROFILES_DIR"
 chmod 750 "$LOG_DIR"
 chmod 750 "$CONFIG_DIR"
+
+# Now initialize log file AFTER directory exists
+SETUP_LOG="$LOG_DIR/setup/install-$(date +%Y%m%d-%H%M%S).log"
+
 log_success "Directory structure created"
 
 # Detect installation method
@@ -272,10 +280,10 @@ add_user() {
     read -p "Username: " username
     
     case $proto in
-        1) /usr/local/bin/mvpn/scripts/add-openvpn-user.sh "$username" ;;
-        2) /usr/local/bin/mvpn/scripts/add-wireguard-user.sh "$username" ;;
-        3) /usr/local/bin/mvpn/scripts/add-squid-user.sh "$username" ;;
-        4) /usr/local/bin/mvpn/scripts/add-v2ray-user.sh "$username" ;;
+        1) /usr/local/bin/mvpn/scripts/mgmt/add-openvpn-user.sh "$username" ;;
+        2) /usr/local/bin/mvpn/scripts/mgmt/add-wireguard-user.sh "$username" ;;
+        3) /usr/local/bin/mvpn/scripts/mgmt/add-squid-user.sh "$username" ;;
+        4) /usr/local/bin/mvpn/scripts/mgmt/add-v2ray-user.sh "$username" ;;
         *) echo "Invalid choice" ;;
     esac
 }

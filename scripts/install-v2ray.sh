@@ -74,7 +74,7 @@ apt upgrade -y
 
 # Install dependencies
 echo -e "${YELLOW}Installing dependencies...${NC}"
-apt install -y curl wget unzip nginx certbot python3-certbot-nginx ufw fail2ban
+apt install -y curl wget unzip nginx certbot python3-certbot-nginx ufw fail2ban jq
 
 # Install Xray
 echo -e "${YELLOW}Installing Xray...${NC}"

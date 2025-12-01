@@ -186,11 +186,17 @@ echo -e "${YELLOW}Configuring firewall...${NC}"
 NIC=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)
 
 # UFW rules
-ufw --force reset
-ufw default deny incoming
-ufw default allow outgoing
-ufw allow 22/tcp comment 'SSH'
-ufw limit 22/tcp
+# Only reset if this is the first protocol being installed
+if ! ufw status | grep -q "Status: active"; then
+    echo -e "${YELLOW}Initializing firewall...${NC}"
+    ufw --force reset
+    ufw default deny incoming
+    ufw default allow outgoing
+    ufw allow 22/tcp comment 'SSH'
+    ufw limit 22/tcp
+fi
+
+# Add OpenVPN rule
 ufw allow $OPENVPN_PORT/$OPENVPN_PROTOCOL comment 'OpenVPN'
 
 # NAT rules for UFW
@@ -199,7 +205,7 @@ cat > /etc/ufw/before.rules <<EOF
 *nat
 :POSTROUTING ACCEPT [0:0]
 # OpenVPN NAT
--A POSTROUTING -s $OPENVPN_NETWORK/24 -o $NIC -j MASQUERADE
+-A POSTROUTING -s $OPENVPN_NETWORK/16 -o $NIC -j MASQUERADE
 COMMIT
 
 # Don't delete these required lines
@@ -221,9 +227,9 @@ COMMIT
 -A ufw-before-forward -i tun0 -o tun0 -j DROP
 
 # PRIVATE NETWORK PROTECTION - Block access to private networks
--A ufw-before-forward -s $OPENVPN_NETWORK/24 -d 192.168.0.0/16 -j DROP
--A ufw-before-forward -s $OPENVPN_NETWORK/24 -d 172.16.0.0/12 -j DROP
--A ufw-before-forward -s $OPENVPN_NETWORK/24 -d 10.0.0.0/8 ! -d $OPENVPN_NETWORK/24 -j DROP
+-A ufw-before-forward -s $OPENVPN_NETWORK/16 -d 192.168.0.0/16 -j DROP
+-A ufw-before-forward -s $OPENVPN_NETWORK/16 -d 172.16.0.0/12 -j DROP
+-A ufw-before-forward -s $OPENVPN_NETWORK/16 -d 10.0.0.0/8 -j DROP
 
 # Allow established connections
 -A ufw-before-input -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
