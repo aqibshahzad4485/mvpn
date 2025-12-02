@@ -115,11 +115,23 @@ PRESHARED_KEY=$(wg genpsk)
 
 # Get server info
 SERVER_PUBLIC_KEY=$(grep "PrivateKey" $WG_CONFIG | awk '{print $3}' | wg pubkey)
-PUBLIC_IP=$(curl -s https://api.ipify.org)
+
+# Get Public IP (Try config first, then API)
+if [ -f "$CONFIG_DIR/server_ip" ]; then
+    PUBLIC_IP=$(cat "$CONFIG_DIR/server_ip")
+else
+    PUBLIC_IP=$(curl -s https://api.ipify.org)
+    # Save for next time
+    echo "$PUBLIC_IP" > "$CONFIG_DIR/server_ip"
+fi
+
 WG_PORT=$(grep "ListenPort" $WG_CONFIG | awk '{print $3}')
 
-# Add peer to server config
-cat >> $WG_CONFIG <<EOF
+# Add peer to server config with file locking
+(
+    flock -x 200
+    
+    cat >> $WG_CONFIG <<EOF
 
 [Peer]
 PublicKey = $CLIENT_PUBLIC_KEY
@@ -127,9 +139,11 @@ PresharedKey = $PRESHARED_KEY
 AllowedIPs = $CLIENT_IP/32
 EOF
 
-# Restart WireGuard
-wg-quick down wg0 2>/dev/null || true
-wg-quick up wg0
+    # Restart WireGuard
+    wg-quick down wg0 2>/dev/null || true
+    wg-quick up wg0
+    
+) 200>$WG_CONFIG.lock
 
 # Generate client config
 cat > "$PROFILES_DIR/$USERNAME.conf" <<EOF
@@ -148,12 +162,6 @@ EOF
 
 chmod 600 "$PROFILES_DIR/$USERNAME.conf"
 
-# Generate QR code
-if command -v qrencode &> /dev/null; then
-    qrencode -t ansiutf8 < "$PROFILES_DIR/$USERNAME.conf" > "$PROFILES_DIR/$USERNAME-qr.txt"
-    qrencode -t png -o "$PROFILES_DIR/$USERNAME-qr.png" < "$PROFILES_DIR/$USERNAME.conf"
-fi
-
 # Update IP database
 if grep -q "$CLIENT_IP" "$IP_DB" && grep "$CLIENT_IP" "$IP_DB" | grep -q "DELETED"; then
     sed -i "s/^$CLIENT_IP.*/$CLIENT_IP $USERNAME ACTIVE/" "$IP_DB"
@@ -168,4 +176,3 @@ log "User $USERNAME created successfully"
 echo "✓ User created: $USERNAME"
 echo "  IP: $CLIENT_IP"
 echo "  Profile: $PROFILES_DIR/$USERNAME.conf"
-[ -f "$PROFILES_DIR/$USERNAME-qr.png" ] && echo "  QR Code: $PROFILES_DIR/$USERNAME-qr.png"

@@ -9,13 +9,13 @@ Production-ready scripts for installing and managing multiple VPN protocols with
 ### One-Line Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_REPO/main/setup.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/setup.sh | sudo bash
 ```
 
 ### Manual Installation
 
 ```bash
-git clone YOUR_REPO /tmp/mvpn
+git clone https://github.com/aqibshahzad4485/mvpn.git /tmp/mvpn
 cd /tmp/mvpn
 sudo ./setup.sh
 ```
@@ -168,8 +168,6 @@ cat /etc/mvpn/profiles/openvpn/john.ovpn
 
 # WireGuard
 cat /etc/mvpn/profiles/wireguard/jane.conf
-# QR code for mobile
-cat /etc/mvpn/profiles/wireguard/jane-qr.txt
 
 # Squid
 cat /etc/mvpn/profiles/squid/alice.txt
@@ -325,7 +323,7 @@ tail -f /var/log/mvpn/user-management.log
 
 ## 📝 License
 
-Proprietary software for Mect VPN.
+Proprietary software for Mecta VPN.
 
 ## 🤝 Support
 

@@ -1,143 +1,70 @@
-# MVPN - Multi-Protocol VPN Server
+# Mecta VPN - Enterprise VPN Solution
 
 Production-ready VPN server with OpenVPN, WireGuard, Squid, and V2Ray/Xray.
+
+## 🔐 Certificate Management
+
+Mecta VPN uses a centralized certificate management system to handle SSL for V2Ray and Squid.
+
+### Workflow
+1.  **Generate**: Run `scripts/certs/generate-certs.sh` on your backend server.
+    *   It checks for existing Let's Encrypt certs.
+    *   Copies them to `scripts/certs/keys/`.
+    *   Displays expiry date.
+2.  **Push**: Commit and push the `scripts/certs/keys/` directory to your repository.
+3.  **Deploy**: On VPN servers, pull the repository and run the installation scripts.
+    *   `install-v2ray.sh` and `install-squid.sh` automatically detect certs in `scripts/certs/keys/`.
+    *   They copy them to `/etc/mvpn/config/certs/key/` for use.
+
+### Usage
+```bash
+# On Backend
+./scripts/certs/generate-certs.sh
+git add scripts/certs/keys
+git commit -m "Update certs"
+git push
+
+# On VPN Server
+cd /tmp/mvpn
+git pull
+./scripts/setup.sh 1
+```
 
 ## 🚀 Quick Start
 
 ### One-Line Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_REPO/main/setup.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/scripts/setup.sh | sudo bash
 ```
 
 ### Manual Installation
 
 ```bash
-git clone YOUR_REPO /tmp/mvpn
+git clone https://github.com/aqibshahzad4485/mvpn.git /tmp/mvpn
 cd /tmp/mvpn
-sudo ./setup.sh
+sudo ./scripts/setup.sh
 ```
 
-## 📁 Directory Structure
+## 🛠 Features
 
-```
-/usr/local/bin/mvpn/          # Installation directory
-├── scripts/                   # Installation & management scripts
-├── bin/                       # Utility binaries
-└── lib/                       # Common libraries
+- **OpenVPN**: AES-256-GCM, TLS 1.3, Client Isolation
+- **WireGuard**: ChaCha20, QR Codes, High Performance
+- **Squid Proxy**: HTTP/HTTPS Authentication, Bandwidth Limiting
+- **V2Ray/Xray**: VMess/VLESS, WebSocket + TLS, CDN Support
+- **Security**: UFW Firewall, Fail2Ban, Server Hardening
+- **Automation**: Non-interactive installation support
 
-/etc/mvpn/                     # Configuration
-├── profiles/                  # User profiles
-│   ├── openvpn/              # .ovpn files
-│   ├── wireguard/            # .conf files
-│   ├── squid/                # credentials
-│   └── v2ray/                # links
-└── config/                    # Server config
+## 📚 Documentation
 
-/var/log/mvpn/                 # Centralized logging
-├── setup/                     # Installation logs
-├── openvpn/                   # OpenVPN logs
-├── wireguard/                 # WireGuard logs
-├── squid/                     # Squid logs
-├── v2ray/                     # V2Ray logs
-└── security/                  # Security logs
-```
-
-## 🔐 Protocols
-
-| Protocol | Port | IP Range | Use Case |
-|----------|------|----------|----------|
-| OpenVPN | 1194/UDP | 10.8.0.0/24 | Universal compatibility |
-| WireGuard | 51820/UDP | 10.9.0.0/24 | Modern, fast VPN |
-| Squid | 3128/TCP | N/A | HTTP/HTTPS proxy |
-| V2Ray | 443/TCP | 10.10.0.0/24 | Censorship circumvention |
-
-## 🎯 Management Commands
-
-```bash
-# Check server status
-mvpn-status
-
-# Add new user
-mvpn-add-user
-
-# List all users
-mvpn-list-users
-
-# Delete user
-mvpn-delete-user
-```
-
-## 📊 View Logs
-
-```bash
-# All logs
-ls -la /var/log/mvpn/
-
-# Specific protocol
-tail -f /var/log/mvpn/openvpn/openvpn.log
-tail -f /var/log/mvpn/wireguard/wg0.log
-tail -f /var/log/mvpn/squid/access.log
-tail -f /var/log/mvpn/v2ray/access.log
-```
-
-## 📥 Get User Profiles
-
-```bash
-# OpenVPN
-cat /etc/mvpn/profiles/openvpn/client.ovpn
-
-# WireGuard
-cat /etc/mvpn/profiles/wireguard/client.conf
-
-# Squid
-cat /etc/mvpn/profiles/squid/credentials.txt
-
-# V2Ray
-cat /etc/mvpn/profiles/v2ray/client.txt
-```
-
-## 🔒 Security Features
-
-- ✅ Client isolation (clients can't communicate)
-- ✅ Private network protection
-- ✅ fail2ban on all services
-- ✅ Firewall hardening (UFW + iptables)
-- ✅ Automatic security updates
-- ✅ Enterprise-grade encryption
-
-## 📖 Documentation
-
-- [Installation Guide](PHASE1_IMPLEMENTATION.md)
-- [Directory Structure](DIRECTORY_STRUCTURE.md)
-- [Implementation Plan](IMPLEMENTATION_PLAN.md)
-- [Scripts README](scripts/README.md)
-
-## 🛠️ Service Management
-
-```bash
-# Check status
-systemctl status openvpn@server
-systemctl status wg-quick@wg0
-systemctl status squid
-systemctl status xray
-
-# Restart services
-systemctl restart openvpn@server
-systemctl restart wg-quick@wg0
-systemctl restart squid
-systemctl restart xray
-```
+- [Automation Guide](AUTOMATION.md)
+- [Script Details](scripts/README.md)
+- [Certificate Management](scripts/certs/README.md)
 
 ## 📝 License
 
-Proprietary software for Mect VPN.
+Proprietary software for Mecta VPN.
 
 ## 🤝 Support
 
-Email: admin@aqibs.dev
-
----
-
-**Version**: 1.0.0  
-**Last Updated**: 2025-11-29
+For support, email: admin@aqibs.dev

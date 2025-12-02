@@ -49,8 +49,6 @@ wg-quick up wg0
 
 # Remove profiles
 rm -f "$PROFILES_DIR/$USERNAME.conf"
-rm -f "$PROFILES_DIR/$USERNAME-qr.txt"
-rm -f "$PROFILES_DIR/$USERNAME-qr.png"
 
 # Mark IP as deleted
 if [ -n "$USER_IP" ]; then

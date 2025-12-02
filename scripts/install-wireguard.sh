@@ -83,7 +83,7 @@ NIC=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)
 echo -e "${YELLOW}Creating server configuration...${NC}"
 cat > /etc/wireguard/wg0.conf <<EOF
 # WireGuard Server Configuration
-# Mect VPN - Enterprise Security
+# Mecta VPN - Enterprise Security
 
 [Interface]
 Address = $WG_SERVER_IP/16

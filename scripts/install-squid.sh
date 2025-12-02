@@ -65,17 +65,43 @@ chown root:proxy /etc/squid/passwords
 
 # Create Squid configuration
 echo -e "${YELLOW}Creating Squid configuration...${NC}"
+
+# Check for SSL certificates
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+KEYS_SOURCE="$REPO_ROOT/scripts/certs/keys"
+TARGET_KEY_DIR="/etc/mvpn/config/certs/key"
+HTTPS_CONFIG=""
+
+mkdir -p "$TARGET_KEY_DIR"
+
+# Try to copy from repo
+if [ -f "$KEYS_SOURCE/fullchain.pem" ] && [ -f "$KEYS_SOURCE/privkey.pem" ]; then
+    echo -e "${GREEN}Using certificates from repository: $KEYS_SOURCE${NC}"
+    cp "$KEYS_SOURCE/fullchain.pem" "$TARGET_KEY_DIR/"
+    cp "$KEYS_SOURCE/privkey.pem" "$TARGET_KEY_DIR/"
+    chmod 600 "$TARGET_KEY_DIR/privkey.pem"
+fi
+
+# Configure HTTPS if certs exist in target dir
+if [ -f "$TARGET_KEY_DIR/fullchain.pem" ] && [ -f "$TARGET_KEY_DIR/privkey.pem" ]; then
+    echo -e "${GREEN}Enabling HTTPS support on port 3129${NC}"
+    HTTPS_CONFIG="https_port 3129 cert=$TARGET_KEY_DIR/fullchain.pem key=$TARGET_KEY_DIR/privkey.pem"
+    ufw allow 3129/tcp comment 'Squid HTTPS'
+fi
+
 cat > /etc/squid/squid.conf <<EOF
 # Squid Proxy Configuration
-# Mect VPN - Enterprise Security
+# Mecta VPN - Enterprise Security
 
 # Network configuration
 http_port $SQUID_PORT
+$HTTPS_CONFIG
 
 # Authentication
 auth_param basic program /usr/lib/squid/basic_ncsa_auth /etc/squid/passwords
 auth_param basic children 5
-auth_param basic realm Mect VPN Proxy
+auth_param basic realm Mecta VPN Proxy
 auth_param basic credentialsttl 2 hours
 
 # Access Control Lists (ACLs)

@@ -83,16 +83,21 @@ if [ -z "$DOMAIN" ]; then
     exit 1
 fi
 
-# Add to Xray config (VMess)
-jq ".inbounds[0].settings.clients += [{\"id\": \"$NEW_UUID\", \"alterId\": 0}]" $XRAY_CONFIG > /tmp/config.json
-mv /tmp/config.json $XRAY_CONFIG
-
-# Add to Xray config (VLESS)
-jq ".inbounds[1].settings.clients += [{\"id\": \"$NEW_UUID\"}]" $XRAY_CONFIG > /tmp/config.json
-mv /tmp/config.json $XRAY_CONFIG
-
-# Restart Xray
-systemctl restart xray
+# Add to Xray config with file locking
+(
+    flock -x 200
+    
+    # Add to VMess
+    jq ".inbounds[0].settings.clients += [{\"id\": \"$NEW_UUID\", \"alterId\": 0}]" $XRAY_CONFIG > /tmp/config.json
+    mv /tmp/config.json $XRAY_CONFIG
+    
+    # Add to VLESS
+    jq ".inbounds[1].settings.clients += [{\"id\": \"$NEW_UUID\"}]" $XRAY_CONFIG > /tmp/config.json
+    mv /tmp/config.json $XRAY_CONFIG
+    
+    # Restart Xray
+    systemctl restart xray
+) 200>$XRAY_CONFIG.lock
 
 # Generate links
 VMESS_JSON="{\"v\":\"2\",\"ps\":\"$USERNAME\",\"add\":\"$DOMAIN\",\"port\":\"443\",\"id\":\"$NEW_UUID\",\"aid\":\"0\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"$DOMAIN\",\"path\":\"$WS_PATH\",\"tls\":\"tls\"}"

@@ -12,12 +12,12 @@
 # - Setup monitoring
 #
 # Installation:
-#   curl -fsSL https://raw.githubusercontent.com/YOUR_REPO/main/setup.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/scripts/setup.sh | sudo bash
 #
 # Or:
-#   git clone YOUR_REPO /tmp/mvpn
+#   git clone https://github.com/aqibshahzad4485/mvpn.git /tmp/mvpn
 #   cd /tmp/mvpn
-#   sudo ./setup.sh
+#   sudo ./scripts/setup.sh
 ################################################################################
 
 set -e
@@ -68,7 +68,7 @@ clear
 cat << "EOF"
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
-║              MECT VPN - Master Setup Script               ║
+║             MECTA VPN - Master Setup Script               ║
 ║                                                           ║
 ║  This will install and configure all VPN protocols        ║
 ║  with enterprise-grade security on your server.           ║
@@ -101,20 +101,35 @@ SETUP_LOG="$LOG_DIR/setup/install-$(date +%Y%m%d-%H%M%S).log"
 log_success "Directory structure created"
 
 # Detect installation method
-if [ -d "/tmp/mvpn" ]; then
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+
+if [ -d "$REPO_ROOT/scripts" ]; then
+    INSTALL_DIR="$REPO_ROOT"
+elif [ -d "/tmp/mvpn" ]; then
     INSTALL_DIR="/tmp/mvpn"
-elif [ -d "$(pwd)/scripts" ]; then
-    INSTALL_DIR="$(pwd)"
 else
-    log_error "Cannot find installation files"
-    exit 1
+    # Fallback if running standalone or piped
+    log_warning "Running in standalone mode or cannot detect repo root."
+    # If we are in the scripts dir, assume parent is repo root
+    if [[ "$SCRIPT_DIR" == */scripts ]]; then
+        INSTALL_DIR="$(dirname "$SCRIPT_DIR")"
+    else
+        INSTALL_DIR="$(pwd)"
+    fi
 fi
 
 log_info "Installation source: $INSTALL_DIR"
 
 # Copy scripts
 log_info "Installing scripts..."
-cp -r "$INSTALL_DIR/scripts/"* "$MVPN_DIR/scripts/"
+if [ -d "$INSTALL_DIR/scripts" ]; then
+    cp -r "$INSTALL_DIR/scripts/"* "$MVPN_DIR/scripts/"
+else
+    # If running setup.sh directly and scripts are in same dir
+    cp -r "$SCRIPT_DIR/"* "$MVPN_DIR/scripts/"
+fi
+
 chmod +x "$MVPN_DIR/scripts/"*.sh
 log_success "Scripts installed to $MVPN_DIR/scripts/"
 
@@ -125,19 +140,31 @@ if [ -z "$PUBLIC_IP" ]; then
 fi
 
 log_info "Detected public IP: $PUBLIC_IP"
+echo "$PUBLIC_IP" > "$CONFIG_DIR/server_ip"
 
-# Interactive menu
-echo ""
-log_info "Select installation type:"
-echo "  1) Install all protocols (OpenVPN + WireGuard + Squid + V2Ray)"
-echo "  2) Install OpenVPN only"
-echo "  3) Install WireGuard only"
-echo "  4) Install Squid Proxy only"
-echo "  5) Install V2Ray/Xray only"
-echo "  6) Custom selection"
-echo "  7) Server hardening only"
-echo ""
-read -p "Enter choice [1-7]: " INSTALL_CHOICE
+# Check for non-interactive mode
+if [ -n "$1" ]; then
+    INSTALL_CHOICE=$1
+    export NON_INTERACTIVE=true
+    log_info "Running in non-interactive mode (Argument: $1)"
+elif [ -n "$INSTALL_TYPE" ]; then
+    INSTALL_CHOICE=$INSTALL_TYPE
+    export NON_INTERACTIVE=true
+    log_info "Running in non-interactive mode (Env: $INSTALL_TYPE)"
+else
+    # Interactive menu
+    echo ""
+    log_info "Select installation type:"
+    echo "  1) Install all protocols (OpenVPN + WireGuard + Squid + V2Ray)"
+    echo "  2) Install OpenVPN only"
+    echo "  3) Install WireGuard only"
+    echo "  4) Install Squid Proxy only"
+    echo "  5) Install V2Ray/Xray only"
+    echo "  6) Custom selection"
+    echo "  7) Server hardening only"
+    echo ""
+    read -p "Enter choice [1-7]: " INSTALL_CHOICE
+fi
 
 # Installation functions
 install_openvpn() {
@@ -160,6 +187,8 @@ install_squid() {
 
 install_v2ray() {
     log_info "Installing V2Ray/Xray..."
+    # Export DOMAIN if set, so install-v2ray.sh picks it up
+    [ -n "$DOMAIN" ] && export DOMAIN
     "$MVPN_DIR/scripts/install-v2ray.sh" 2>&1 | tee -a "$LOG_DIR/setup/v2ray-install.log"
     log_success "V2Ray installed"
 }
@@ -256,9 +285,10 @@ cat > "$MVPN_DIR/lib/common.sh" <<'COMMONLIB'
 
 PROFILES_DIR="/etc/mvpn/profiles"
 LOG_DIR="/var/log/mvpn"
+CONFIG_DIR="/etc/mvpn/config"
 
 show_status() {
-    echo "MECT VPN Server Status"
+    echo "MECTA VPN Server Status"
     echo "======================"
     echo ""
     systemctl is-active openvpn@server 2>/dev/null && echo "✓ OpenVPN: Running" || echo "✗ OpenVPN: Stopped"
@@ -297,7 +327,21 @@ list_users() {
 }
 
 delete_user() {
-    echo "Delete User - Not yet implemented"
+    echo "Delete User - Select Protocol:"
+    echo "1) OpenVPN"
+    echo "2) WireGuard"
+    echo "3) Squid"
+    echo "4) V2Ray"
+    read -p "Choice: " proto
+    read -p "Username: " username
+    
+    case $proto in
+        1) /usr/local/bin/mvpn/scripts/mgmt/delete-openvpn-user.sh "$username" ;;
+        2) /usr/local/bin/mvpn/scripts/mgmt/delete-wireguard-user.sh "$username" ;;
+        3) /usr/local/bin/mvpn/scripts/mgmt/delete-squid-user.sh "$username" ;;
+        4) /usr/local/bin/mvpn/scripts/mgmt/delete-v2ray-user.sh "$username" ;;
+        *) echo "Invalid choice" ;;
+    esac
 }
 COMMONLIB
 
@@ -327,7 +371,7 @@ EOF
 echo ""
 echo ""
 log_success "═══════════════════════════════════════════════════════════"
-log_success "           MECT VPN Installation Complete!                  "
+log_success "           MECTA VPN Installation Complete!                  "
 log_success "═══════════════════════════════════════════════════════════"
 echo ""
 log_info "Server Information:"

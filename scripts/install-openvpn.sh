@@ -81,7 +81,7 @@ cat > vars <<EOF
 set_var EASYRSA_REQ_COUNTRY    "US"
 set_var EASYRSA_REQ_PROVINCE   "California"
 set_var EASYRSA_REQ_CITY       "San Francisco"
-set_var EASYRSA_REQ_ORG        "Mect VPN"
+set_var EASYRSA_REQ_ORG        "Mecta VPN"
 set_var EASYRSA_REQ_EMAIL      "admin@aqibs.dev"
 set_var EASYRSA_REQ_OU         "VPN"
 set_var EASYRSA_KEY_SIZE       4096
@@ -110,7 +110,7 @@ cp pki/ta.key /etc/openvpn/
 echo -e "${YELLOW}Creating server configuration...${NC}"
 cat > /etc/openvpn/server.conf <<EOF
 # OpenVPN Server Configuration
-# Mect VPN - Enterprise Security
+# Mecta VPN - Enterprise Security
 
 port $OPENVPN_PORT
 proto $OPENVPN_PROTOCOL

@@ -120,7 +120,13 @@ cd "$EASYRSA_DIR"
 ./easyrsa --batch build-client-full "$USERNAME" nopass
 
 # Get server info
-PUBLIC_IP=$(curl -s https://api.ipify.org)
+if [ -f "$CONFIG_DIR/server_ip" ]; then
+    PUBLIC_IP=$(cat "$CONFIG_DIR/server_ip")
+else
+    PUBLIC_IP=$(curl -s https://api.ipify.org)
+    echo "$PUBLIC_IP" > "$CONFIG_DIR/server_ip"
+fi
+
 OPENVPN_PORT=$(grep "^port" /etc/openvpn/server.conf | awk '{print $2}')
 OPENVPN_PROTO=$(grep "^proto" /etc/openvpn/server.conf | awk '{print $2}')
 
@@ -163,16 +169,19 @@ EOF
 
 chmod 600 "$PROFILES_DIR/$USERNAME.ovpn"
 
-# Update IP database
-if grep -q "$CLIENT_IP" "$IP_DB" && grep "$CLIENT_IP" "$IP_DB" | grep -q "DELETED"; then
-    # Reusing deleted IP
-    sed -i "s/^$CLIENT_IP.*/$CLIENT_IP $USERNAME ACTIVE/" "$IP_DB"
-    log "Reused IP $CLIENT_IP (previously deleted)"
-else
-    # New IP allocation
-    echo "$CLIENT_IP $USERNAME ACTIVE" >> "$IP_DB"
-    log "Allocated new IP $CLIENT_IP"
-fi
+# Update IP database with locking
+(
+    flock -x 200
+    if grep -q "$CLIENT_IP" "$IP_DB" && grep "$CLIENT_IP" "$IP_DB" | grep -q "DELETED"; then
+        # Reusing deleted IP
+        sed -i "s/^$CLIENT_IP.*/$CLIENT_IP $USERNAME ACTIVE/" "$IP_DB"
+        log "Reused IP $CLIENT_IP (previously deleted)"
+    else
+        # New IP allocation
+        echo "$CLIENT_IP $USERNAME ACTIVE" >> "$IP_DB"
+        log "Allocated new IP $CLIENT_IP"
+    fi
+) 200>$IP_DB.lock
 
 # Success
 log "User $USERNAME created successfully"

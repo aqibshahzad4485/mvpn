@@ -48,7 +48,13 @@ PASSWORD=$(openssl rand -base64 16)
 htpasswd -b "$PASSWORD_FILE" "$USERNAME" "$PASSWORD"
 
 # Get server info
-PUBLIC_IP=$(curl -s https://api.ipify.org)
+if [ -f "$CONFIG_DIR/server_ip" ]; then
+    PUBLIC_IP=$(cat "$CONFIG_DIR/server_ip")
+else
+    PUBLIC_IP=$(curl -s https://api.ipify.org)
+    echo "$PUBLIC_IP" > "$CONFIG_DIR/server_ip"
+fi
+
 SQUID_PORT=$(grep "^http_port" /etc/squid/squid.conf | awk '{print $2}')
 
 # Create credentials file

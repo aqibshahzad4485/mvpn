@@ -46,9 +46,11 @@ fi
 
 echo -e "${YELLOW}Detected public IP: $PUBLIC_IP${NC}"
 
-# Ask for domain
-echo -e "${YELLOW}Enter your domain name (must point to $PUBLIC_IP):${NC}"
-read -p "Domain: " DOMAIN
+# Ask for domain if not provided
+if [ -z "$DOMAIN" ]; then
+    echo -e "${YELLOW}Enter your domain name (must point to $PUBLIC_IP):${NC}"
+    read -p "Domain: " DOMAIN
+fi
 
 if [ -z "$DOMAIN" ]; then
     echo -e "${RED}Domain is required for TLS!${NC}"
@@ -61,9 +63,13 @@ RESOLVED_IP=$(dig +short $DOMAIN | tail -1)
 if [ "$RESOLVED_IP" != "$PUBLIC_IP" ]; then
     echo -e "${RED}Warning: Domain $DOMAIN resolves to $RESOLVED_IP, not $PUBLIC_IP${NC}"
     echo -e "${YELLOW}Please update your DNS records and try again.${NC}"
-    read -p "Continue anyway? (y/N): " CONTINUE
-    if [ "$CONTINUE" != "y" ]; then
-        exit 1
+    if [ -z "$NON_INTERACTIVE" ]; then
+        read -p "Continue anyway? (y/N): " CONTINUE
+        if [ "$CONTINUE" != "y" ]; then
+            exit 1
+        fi
+    else
+        echo -e "${YELLOW}Running in non-interactive mode, proceeding anyway...${NC}"
     fi
 fi
 
@@ -76,6 +82,10 @@ apt upgrade -y
 echo -e "${YELLOW}Installing dependencies...${NC}"
 apt install -y curl wget unzip nginx certbot python3-certbot-nginx ufw fail2ban jq
 
+# Open HTTP port for Certbot
+echo -e "${YELLOW}Opening port 80 for SSL verification...${NC}"
+ufw allow 80/tcp comment 'HTTP'
+
 # Install Xray
 echo -e "${YELLOW}Installing Xray...${NC}"
 bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
@@ -86,10 +96,36 @@ UUID=$(cat /proc/sys/kernel/random/uuid)
 # Generate random path
 WS_PATH="/$(openssl rand -hex 8)"
 
-# Obtain SSL certificate
-echo -e "${YELLOW}Obtaining SSL certificate...${NC}"
-systemctl stop nginx 2>/dev/null || true
-certbot certonly --standalone -d $DOMAIN --non-interactive --agree-tos --email $EMAIL --preferred-challenges http
+# SSL Certificate Configuration
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+KEYS_SOURCE="$REPO_ROOT/scripts/certs/keys"
+TARGET_KEY_DIR="/etc/mvpn/config/certs/key"
+
+mkdir -p "$TARGET_KEY_DIR"
+
+if [ -f "$KEYS_SOURCE/fullchain.pem" ] && [ -f "$KEYS_SOURCE/privkey.pem" ]; then
+    echo -e "${GREEN}Using certificates from repository: $KEYS_SOURCE${NC}"
+    cp "$KEYS_SOURCE/fullchain.pem" "$TARGET_KEY_DIR/"
+    cp "$KEYS_SOURCE/privkey.pem" "$TARGET_KEY_DIR/"
+    chmod 600 "$TARGET_KEY_DIR/privkey.pem"
+    
+    # Link to Let's Encrypt path for compatibility if needed, but we use direct path now
+    mkdir -p "/etc/letsencrypt/live/$DOMAIN"
+    ln -sf "$TARGET_KEY_DIR/fullchain.pem" "/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+    ln -sf "$TARGET_KEY_DIR/privkey.pem" "/etc/letsencrypt/live/$DOMAIN/privkey.pem"
+else
+    # Fallback to Certbot (only if keys not in repo)
+    echo -e "${YELLOW}Certificates not found in repo keys. Trying Certbot...${NC}"
+    systemctl stop nginx 2>/dev/null || true
+    certbot certonly --standalone -d $DOMAIN --non-interactive --agree-tos --email $EMAIL --preferred-challenges http
+    
+    # Copy generated certs to target dir for consistency
+    if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+        cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "$TARGET_KEY_DIR/"
+        cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" "$TARGET_KEY_DIR/"
+    fi
+fi
 
 # Configure Nginx as reverse proxy
 echo -e "${YELLOW}Configuring Nginx...${NC}"
@@ -104,8 +140,9 @@ server {
     listen 443 ssl http2;
     server_name $DOMAIN;
 
-    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+    # Use certificates from config dir
+    ssl_certificate $TARGET_KEY_DIR/fullchain.pem;
+    ssl_certificate_key $TARGET_KEY_DIR/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
@@ -267,7 +304,7 @@ echo -e "${YELLOW}Generating client configurations...${NC}"
 VMESS_JSON=$(cat <<VMESSJSON
 {
   "v": "2",
-  "ps": "Mect VPN - $DOMAIN",
+  "ps": "Mecta VPN - $DOMAIN",
   "add": "$DOMAIN",
   "port": "$XRAY_PORT",
   "id": "$UUID",
@@ -284,7 +321,7 @@ VMESSJSON
 VMESS_LINK="vmess://$(echo -n $VMESS_JSON | base64 -w 0)"
 
 # VLESS link
-VLESS_LINK="vless://$UUID@$DOMAIN:$XRAY_PORT?encryption=none&security=tls&type=ws&host=$DOMAIN&path=${WS_PATH}-vless#Mect%20VPN%20-%20$DOMAIN"
+VLESS_LINK="vless://$UUID@$DOMAIN:$XRAY_PORT?encryption=none&security=tls&type=ws&host=$DOMAIN&path=${WS_PATH}-vless#Mecta%20VPN%20-%20$DOMAIN"
 
 # Save links
 cat > /root/v2ray-links.txt <<EOF

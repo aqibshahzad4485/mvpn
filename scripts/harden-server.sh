@@ -49,7 +49,7 @@ cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
 # Configure SSH
 cat > /etc/ssh/sshd_config <<EOF
 # SSH Server Configuration - Hardened
-# Mect VPN Security
+# Mecta VPN Security
 
 # Network
 Port 22
@@ -146,7 +146,7 @@ echo -e "${YELLOW}Tuning kernel parameters...${NC}"
 
 cat >> /etc/sysctl.conf <<EOF
 
-# Mect VPN - Security Hardening
+# Mecat VPN - Security Hardening
 
 # IP Forwarding (required for VPN)
 net.ipv4.ip_forward = 1
