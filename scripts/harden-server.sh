@@ -2,7 +2,7 @@
 
 ################################################################################
 # Server Hardening Script
-# 
+#
 # Security measures:
 # - SSH hardening
 # - Firewall configuration
@@ -27,7 +27,7 @@ echo -e "${GREEN}================================${NC}"
 
 # Check if running as root
 if [[ $EUID -ne 0 ]]; then
-   echo -e "${RED}This script must be run as root${NC}" 
+   echo -e "${RED}This script must be run as root${NC}"
    exit 1
 fi
 
@@ -93,7 +93,7 @@ EOF
 cat > /etc/ssh/banner <<EOF
 ***************************************************************************
                     AUTHORIZED ACCESS ONLY
-                    
+
 This system is for authorized use only. Unauthorized access is prohibited
 and will be prosecuted to the fullest extent of the law.
 

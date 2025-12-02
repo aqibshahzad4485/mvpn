@@ -31,16 +31,28 @@ echo -e "${GREEN}================================${NC}"
 
 mkdir -p "$KEYS_DIR"
 
+# Load environment variables if not already set
+if [ -z "$CF_Token" ] || [ -z "$CF_Email" ]; then
+    if [ -f /etc/environment ]; then
+        echo -e "${YELLOW}Loading credentials from /etc/environment...${NC}"
+        export $(grep -E '^(CF_Token|CF_Email)=' /etc/environment | xargs)
+    fi
+fi
+
 # Check if certs exist
 if [ -f "$LE_DIR/fullchain.pem" ] && [ -f "$LE_DIR/privkey.pem" ]; then
     echo -e "${GREEN}✓ Existing certificates found in $LE_DIR${NC}"
 else
     echo -e "${YELLOW}Certificates not found. Generating new ones...${NC}"
     
-    # Check for Cloudflare credentials
-    if [ -z "$CF_Token" ] && [ -z "$CF_Email" ]; then
+    # Check for Cloudflare credentials after loading
+    if [ -z "$CF_Token" ] || [ -z "$CF_Email" ]; then
         echo -e "${RED}Error: Cloudflare credentials not found!${NC}"
-        echo "Please export CF_Token and CF_Email in /etc/environment"
+        echo "Please add CF_Token and CF_Email to /etc/environment"
+        echo ""
+        echo "Example:"
+        echo '  CF_Token="your_token_here"'
+        echo '  CF_Email="your@email.com"'
         exit 1
     fi
 
