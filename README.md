@@ -1,70 +1,417 @@
-# Mecta VPN - Enterprise VPN Solution
+# MVPN - Complete VPN Infrastructure System
 
-Production-ready VPN server with OpenVPN, WireGuard, Squid, and V2Ray/Xray.
+**Build your own enterprise-grade VPN infrastructure with master server management and automated node provisioning.**
 
-## 🔐 Certificate Management
+[![License](https://img.shields.io/badge/license-Proprietary-blue.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-Active-success.svg)]()
 
-Mecta VPN uses a centralized certificate management system to handle SSL for V2Ray and Squid.
+---
 
-### Workflow
-1.  **Generate**: Run `scripts/certs/generate-certs.sh` on your backend server.
-    *   It checks for existing Let's Encrypt certs.
-    *   Copies them to `scripts/certs/keys/`.
-    *   Displays expiry date.
-2.  **Push**: Commit and push the `scripts/certs/keys/` directory to your repository.
-3.  **Deploy**: On VPN servers, pull the repository and run the installation scripts.
-    *   `install-v2ray.sh` and `install-squid.sh` automatically detect certs in `scripts/certs/keys/`.
-    *   They copy them to `/etc/mvpn/config/certs/key/` for use.
+## 📋 What is MVPN?
 
-### Usage
-```bash
-# On Backend
-./scripts/certs/generate-certs.sh
-git add scripts/certs/keys
-git commit -m "Update certs"
-git push
+MVPN is a **complete VPN infrastructure system** that enables you to deploy and manage your own VPN network with:
 
-# On VPN Server
-cd /tmp/mvpn
-git pull
-./scripts/setup.sh 1
+- **Master Server**: Centralized certificate management, API backend, and monitoring
+- **VPN Nodes**: Automated deployment with multiple protocols (OpenVPN, WireGuard, Squid, V2Ray)
+- **Monitoring**: Real-time heartbeat and metrics from all VPN servers
+- **White-Label Ready**: Fully customizable with `.env` configuration
+
+---
+
+## 🏗️ Architecture
+
 ```
+┌─────────────────────────────────────────────────────────────┐
+│                   MASTER SERVER                              │
+│  • Certificate Management (Let's Encrypt + Cloudflare)      │
+│  • Backend API (srvlist)                                    │
+│  • Monitoring Dashboard                                     │
+│  • Auto-sync certs to mvpn-scripts                         │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           │ Git Push (certs)
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   VPN NODES (Multiple)                       │
+│  • OpenVPN, WireGuard, Squid, V2Ray                        │
+│  • Monitoring Agent (heartbeat to master)                  │
+│  • Auto-update certificates                                │
+│  • User management per protocol                            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📦 Repositories
+
+| Repository | Visibility | Purpose |
+|------------|------------|---------|
+| **[mvpn](https://github.com/aqibshahzad4485/mvpn)** | PUBLIC | Master documentation + deployment scripts |
+| **[mvpn-backend](https://github.com/aqibshahzad4485/mvpn-backend)** | PRIVATE | Backend API + certificate management |
+| **[mvpn-scripts](https://github.com/aqibshahzad4485/mvpn-scripts)** | PRIVATE | VPN installation scripts + SSL keys |
+| **[mvpn-apps](https://github.com/aqibshahzad4485/mvpn-apps)** | PRIVATE | Client applications *(coming soon)* |
+
+---
 
 ## 🚀 Quick Start
 
-### One-Line Installation
+### Prerequisites
+
+- Ubuntu 20.04/22.04 LTS servers
+- Domain name (e.g., `yourdomain.com`)
+- Cloudflare account (for DNS + SSL)
+- GitHub account with private repositories
+- AWS account (optional, for S3 hosting)
+
+### 1. Setup Master Server
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/scripts/setup.sh | sudo bash
+# Create GitHub token with access to mvpn-backend and mvpn-scripts
+# Token needs: repo (full control)
+
+curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/master.sh | \\\n  GITHUB_TOKEN=ghp_your_master_token \\\n  CF_TOKEN=your_cloudflare_token \\\n  bash
 ```
 
-### Manual Installation
+**What it does**:
+- Clones `mvpn-backend` and `mvpn-scripts` to `/opt/git/`
+- Generates SSL certificates using Let's Encrypt + Cloudflare DNS
+- Syncs certificates to `mvpn-scripts/keys/`
+- Sets up srvlist API backend
+- Configures automatic certificate renewal
+
+### 2. Deploy VPN Nodes
 
 ```bash
-git clone https://github.com/aqibshahzad4485/mvpn.git /tmp/mvpn
-cd /tmp/mvpn
-sudo ./scripts/setup.sh
+# Create GitHub token with read-only access to mvpn-scripts
+# Token needs: repo (read-only)
+
+curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/vpn.sh | \\\n  GITHUB_TOKEN=ghp_your_readonly_token \\\n  MASTER_API_URL=https://api.yourdomain.com \\\n  MASTER_API_TOKEN=your_api_token \\\n  bash
 ```
 
-## 🛠 Features
+**What it does**:
+- Clones `mvpn-scripts` to `/opt/git/mvpn-scripts`
+- Installs selected VPN protocols
+- Installs monitoring agent
+- Registers with master server
+- Sets up automatic certificate updates
 
-- **OpenVPN**: AES-256-GCM, TLS 1.3, Client Isolation
-- **WireGuard**: ChaCha20, QR Codes, High Performance
-- **Squid Proxy**: HTTP/HTTPS Authentication, Bandwidth Limiting
-- **V2Ray/Xray**: VMess/VLESS, WebSocket + TLS, CDN Support
-- **Security**: UFW Firewall, Fail2Ban, Server Hardening
-- **Automation**: Non-interactive installation support
+---
 
-## 📚 Documentation
+## 📖 Complete Setup Guide
 
-- [Automation Guide](AUTOMATION.md)
-- [Script Details](scripts/README.md)
-- [Certificate Management](scripts/certs/README.md)
+### Step 1: Domain & Cloudflare Setup
 
-## 📝 License
+1. **Purchase Domain**: Get a domain from any registrar
+2. **Add to Cloudflare**:
+   - Sign up at [cloudflare.com](https://cloudflare.com)
+   - Add your domain
+   - Update nameservers at your registrar
+3. **Create API Token**:
+   - Go to: Profile → API Tokens → Create Token
+   - Use template: "Edit zone DNS"
+   - Select your domain
+   - Copy the token
+
+### Step 2: GitHub Setup
+
+1. **Create Private Repositories**:
+   ```
+   mvpn-backend  (private)
+   mvpn-scripts  (private)
+   ```
+
+2. **Create GitHub Tokens**:
+   
+   **Master Server Token** (read/write):
+   - Settings → Developer settings → Personal access tokens → Fine-grained tokens
+   - Repository access: `mvpn-backend`, `mvpn-scripts`
+   - Permissions: Contents (Read and write)
+   
+   **VPN Node Token** (read-only):
+   - Repository access: `mvpn-scripts`
+   - Permissions: Contents (Read-only)
+
+### Step 3: Configure Environment
+
+Create `.env` file from `.env.example`:
+
+```bash
+# Company Branding
+COMPANY_NAME="Your VPN Company"
+COMPANY_DOMAIN="yourdomain.com"
+COMPANY_EMAIL="admin@yourdomain.com"
+
+# VPN Domain
+VPN_DOMAIN="vpn.yourdomain.com"
+
+# Cloudflare
+CF_TOKEN="your_cloudflare_api_token"
+CF_EMAIL="admin@yourdomain.com"
+
+# GitHub
+GITHUB_ORG="your-github-username"
+GITHUB_TOKEN="ghp_your_token"
+
+# Master Server
+MASTER_API_URL="https://api.yourdomain.com"
+MASTER_API_TOKEN="your_secure_api_token"
+```
+
+### Step 4: Deploy Master Server
+
+```bash
+# SSH into your master server
+ssh root@master-server-ip
+
+# Run master setup script
+curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/master.sh | \\\n  GITHUB_TOKEN=ghp_xxx \\\n  CF_TOKEN=xxx \\\n  VPN_DOMAIN=vpn.yourdomain.com \\\n  bash
+
+# Verify installation
+systemctl status mvpn-api
+ls -la /opt/git/mvpn-backend
+ls -la /opt/git/mvpn-scripts/keys
+```
+
+### Step 5: Deploy VPN Nodes
+
+```bash
+# SSH into your VPN server
+ssh root@vpn-server-ip
+
+# Run VPN setup script
+curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/vpn.sh | \\\n  GITHUB_TOKEN=ghp_xxx \\\n  MASTER_API_URL=https://api.yourdomain.com \\\n  MASTER_API_TOKEN=xxx \\\n  bash
+
+# Verify installation
+systemctl status openvpn@server
+systemctl status wg-quick@wg0
+systemctl status squid
+systemctl status xray
+systemctl status vpn-monitor
+```
+
+---
+
+## 🔐 Certificate Management
+
+### Automatic Workflow
+
+1. **Master Server** generates certificates using Let's Encrypt + Cloudflare DNS
+2. **Sync Script** copies certificates to `mvpn-scripts/keys/`
+3. **Git Push** updates the mvpn-scripts repository
+4. **VPN Nodes** pull updates every 2 months (via cron)
+
+### Manual Certificate Update
+
+**On Master Server**:
+```bash
+cd /opt/git/mvpn-backend
+./scripts/certs/generate-certs.sh  # Generate/renew
+./scripts/certs/sync-certs.sh      # Sync to mvpn-scripts
+```
+
+**On VPN Nodes**:
+```bash
+/opt/git/mvpn-scripts/update-certs.sh
+```
+
+### Automatic Updates (Cron)
+
+VPN nodes automatically check for certificate updates every 2 months:
+```bash
+# Cron job (added by setup.sh)
+0 3 1 */2 * /opt/git/mvpn-scripts/update-certs.sh
+```
+
+---
+
+## 📊 Monitoring & Management
+
+### Agent System
+
+Each VPN node runs a monitoring agent that:
+- Sends heartbeat every 60 seconds
+- Reports server metrics (CPU, RAM, bandwidth)
+- Tracks active VPN connections
+- Logs to master server API
+
+### Master Server API
+
+**Endpoints**:
+- `GET /api/servers` - List all VPN servers
+- `GET /api/servers/:id/status` - Server status
+- `GET /api/servers/:id/users` - User list
+- `POST /api/servers/:id/users` - Add user
+- `DELETE /api/servers/:id/users/:userId` - Remove user
+- `GET /api/certs/status` - Certificate expiry status
+
+**Authentication**: Bearer token in `Authorization` header
+
+---
+
+## 🛠️ VPN Protocols
+
+| Protocol | Port | Use Case | Features |
+|----------|------|----------|----------|
+| **OpenVPN** | 1194/UDP | Universal compatibility | AES-256-GCM, TLS 1.3 |
+| **WireGuard** | 51820/UDP | Modern, fast VPN | ChaCha20, QR codes |
+| **Squid** | 3128/TCP | HTTP/HTTPS proxy | Authentication, bandwidth limiting |
+| **V2Ray/Xray** | 443/TCP | Censorship circumvention | VMess, VLESS, WebSocket + TLS |
+
+### User Management
+
+```bash
+# Add users (on VPN server)
+/usr/local/bin/mvpn/scripts/mgmt/add-openvpn-user.sh username
+/usr/local/bin/mvpn/scripts/mgmt/add-wireguard-user.sh username
+/usr/local/bin/mvpn/scripts/mgmt/add-squid-user.sh username
+/usr/local/bin/mvpn/scripts/mgmt/add-v2ray-user.sh username
+
+# Delete users
+/usr/local/bin/mvpn/scripts/mgmt/delete-openvpn-user.sh username
+```
+
+---
+
+## 🎨 Customization & White-Labeling
+
+All branding and configuration is controlled via `.env` files:
+
+```bash
+# Your company branding
+COMPANY_NAME="Your VPN"
+COMPANY_DOMAIN="yourdomain.com"
+COMPANY_EMAIL="support@yourdomain.com"
+
+# VPN domain
+VPN_DOMAIN="vpn.yourdomain.com"
+
+# Email templates
+WELCOME_EMAIL_TEMPLATE="/path/to/template.html"
+```
+
+Update `.env` files in all repositories and redeploy.
+
+---
+
+## 🔧 Troubleshooting
+
+### Master Server Issues
+
+```bash
+# Check API status
+systemctl status mvpn-api
+journalctl -u mvpn-api -n 50
+
+# Check certificate generation
+/opt/git/mvpn-backend/scripts/certs/check-certs.sh
+
+# View sync logs
+tail -f /var/log/mvpn/cert-sync.log
+```
+
+### VPN Node Issues
+
+```bash
+# Check services
+systemctl status openvpn@server wg-quick@wg0 squid xray
+
+# Check agent
+systemctl status vpn-monitor
+journalctl -u vpn-monitor -n 50
+
+# Update certificates
+/opt/git/mvpn-scripts/update-certs.sh
+
+# View logs
+tail -f /var/log/mvpn/setup.log
+tail -f /var/log/mvpn/user-management.log
+```
+
+### Common Issues
+
+**Certificate not syncing**:
+```bash
+# On master server
+cd /opt/git/mvpn-scripts
+git status  # Check for uncommitted changes
+git pull    # Ensure up to date
+```
+
+**Agent not reporting**:
+```bash
+# Check API token
+cat /opt/git/mvpn-scripts/.env | grep MASTER_API_TOKEN
+
+# Test API connection
+curl -H "Authorization: Bearer $MASTER_API_TOKEN" \
+  $MASTER_API_URL/api/servers
+```
+
+---
+
+## 🚧 Future Development
+
+### mvpn-apps (Coming Soon)
+
+Client applications for end users:
+
+- **Android** - Native Android app
+- **iOS** - Native iOS app  
+- **macOS** - Native macOS app
+- **Windows** - Native Windows app
+- **Browser Extensions** - Chrome, Firefox, Edge
+
+**Status**: Planning phase. Will be developed after completing API and management features.
+
+---
+
+## 📝 Documentation
+
+- **[mvpn-backend README](https://github.com/aqibshahzad4485/mvpn-backend)** - Backend API documentation
+- **[mvpn-scripts README](https://github.com/aqibshahzad4485/mvpn-scripts)** - VPN installation guide
+- **[srvlist API](https://github.com/aqibshahzad4485/mvpn-backend/tree/main/srvlist)** - API reference
+
+---
+
+## 🔒 Security Best Practices
+
+1. **GitHub Tokens**:
+   - Use fine-grained tokens with minimal permissions
+   - Rotate tokens every 90 days
+   - Never commit tokens to repositories
+
+2. **Certificates**:
+   - Keep `mvpn-scripts` repository private
+   - Set `privkey.pem` permissions to `600`
+   - Monitor expiry dates
+
+3. **API Security**:
+   - Use strong API tokens
+   - Enable rate limiting
+   - Monitor access logs
+
+4. **Server Hardening**:
+   - Enable UFW firewall
+   - Configure fail2ban
+   - Disable password authentication
+   - Keep systems updated
+
+---
+
+## 📄 License
 
 Proprietary software for Mecta VPN.
 
+---
+
 ## 🤝 Support
 
-For support, email: admin@aqibs.dev
+- **Email**: admin@aqibs.dev
+- **Documentation**: This README + repository READMEs
+- **Issues**: GitHub Issues in respective repositories
+
+---
+
+**Version**: 1.0.0  
+**Last Updated**: 2025-12-06  
+**Maintained by**: Mecta VPN Team
