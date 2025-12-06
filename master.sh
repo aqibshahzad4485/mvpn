@@ -119,9 +119,9 @@ cd mvpn-backend
 echo -e "${YELLOW}Syncing certificates to mvpn-scripts...${NC}"
 ./scripts/certs/sync-certs.sh
 
-# Set up cron for certificate renewal (every 2 months)
+# Set up cron for certificate renewal (every month)
 echo -e "${YELLOW}Setting up automatic certificate renewal...${NC}"
-(crontab -l 2>/dev/null; echo "0 3 1 */2 * cd ${INSTALL_DIR}/mvpn-backend && ./scripts/certs/check-certs.sh && ./scripts/certs/sync-certs.sh") | crontab -
+(crontab -l 2>/dev/null; echo "0 3 1 */1 * cd ${INSTALL_DIR}/mvpn-backend && ./scripts/certs/check-certs.sh && ./scripts/certs/sync-certs.sh") | crontab -
 
 echo ""
 echo -e "${GREEN}================================${NC}"
