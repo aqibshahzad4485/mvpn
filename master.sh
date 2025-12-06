@@ -9,8 +9,7 @@
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/master.sh | \
 #     GITHUB_TOKEN=ghp_xxx \
-#     CF_TOKEN=xxx \
-#     VPN_DOMAIN=vpn.yourdomain.com \
+#     CF_TOKEN=xxx 
 #     bash
 ################################################################################
 
@@ -48,7 +47,7 @@ fi
 
 # Optional variables with defaults
 VPN_DOMAIN="${VPN_DOMAIN:-vpn.aqibs.dev}"
-CF_EMAIL="${CF_EMAIL:-admin@aqibs.dev}"
+CF_EMAIL="${CF_EMAIL:-aqib.shahzad4485@gmail.com}"
 INSTALL_DIR="/opt/git"
 GITHUB_ORG="aqibshahzad4485"
 
