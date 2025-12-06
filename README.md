@@ -69,7 +69,9 @@ MVPN is a **complete VPN infrastructure system** that enables you to deploy and 
 # Create GitHub token with access to mvpn-backend and mvpn-scripts
 # Token needs: repo (full control)
 
-curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/master.sh | \\\n  GITHUB_TOKEN=ghp_your_master_token \\\n  CF_TOKEN=your_cloudflare_token \\\n  bash
+GITHUB_TOKEN="yourtoken" \
+CF_TOKEN="yourcftoken" \
+bash <(curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/master.sh)
 ```
 
 **What it does**:

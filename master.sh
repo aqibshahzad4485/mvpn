@@ -113,15 +113,18 @@ apt install -y certbot python3-certbot-dns-cloudflare git curl
 # Generate certificates
 echo -e "${YELLOW}Generating SSL certificates...${NC}"
 cd mvpn-backend
-./scripts/certs/generate-certs.sh
+chmod +x $INSTALL_DIR/mvpn-backend/scripts/certs/generate-certs.sh
+bash $INSTALL_DIR/mvpn-backend/scripts/certs/generate-certs.sh
 
 # Sync certificates to mvpn-scripts
 echo -e "${YELLOW}Syncing certificates to mvpn-scripts...${NC}"
-./scripts/certs/sync-certs.sh
+cd mvpn-scripts
+chmod +x $INSTALL_DIR/mvpn-scripts/scripts/certs/sync-certs.sh
+bash $INSTALL_DIR/mvpn-scripts/scripts/certs/sync-certs.sh
 
 # Set up cron for certificate renewal (every month)
 echo -e "${YELLOW}Setting up automatic certificate renewal...${NC}"
-(crontab -l 2>/dev/null; echo "0 3 1 */1 * cd ${INSTALL_DIR}/mvpn-backend && ./scripts/certs/check-certs.sh && ./scripts/certs/sync-certs.sh") | crontab -
+(crontab -l 2>/dev/null; echo "0 3 1 */1 * cd ${INSTALL_DIR}/mvpn-backend &&    bash $INSTALL_DIR/mvpn-backend/scripts/certs/check-certs.sh && bash $INSTALL_DIR/mvpn-scripts/scripts/certs/sync-certs.sh") | crontab -
 
 echo ""
 echo -e "${GREEN}================================${NC}"
