@@ -61,6 +61,7 @@ MVPN is a **complete VPN infrastructure system** that enables you to deploy and 
 - Domain name (e.g., `yourdomain.com`)
 - Cloudflare account (for DNS + SSL)
 - GitHub account with private repositories
+- **Optional**: Slack workspace (for certificate expiry/renewal notifications)
 
 ### 1. Setup Master Server
 
@@ -186,7 +187,13 @@ CF_TOKEN="your_cloudflare_token"
 CF_EMAIL="your@email.com"
 VPN_DOMAIN="vpn.yourdomain.com"
 GITHUB_ORG="your-github-username"
+
+# Optional - Slack notifications for certificate events
+SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
 ```
+
+> [!TIP]
+> **Slack Notifications**: Get alerts for certificate expiry, renewals, and failures. See [Slack Setup Guide](https://github.com/aqibshahzad4485/mvpn-backend/blob/main/scripts/certs/SLACK_SETUP.md) for detailed instructions on creating and configuring webhooks.
 
 **For VPN Servers:**
 
@@ -265,6 +272,10 @@ systemctl status vpn-monitor
 2. **Auto-Push** automatically commits and pushes certificates to `mvpn-backend` repository
 3. **Sync Script** copies certificates to `mvpn-scripts/keys/` and pushes
 4. **VPN Nodes** pull updates every 2 months (via cron)
+5. **Slack Notifications** (optional): Get alerts for expiring certificates, renewals, and failures
+
+> [!NOTE]
+> **Certificate Notifications**: Configure Slack webhooks to receive alerts about certificate events. See [Slack Setup Guide](https://github.com/aqibshahzad4485/mvpn-backend/blob/main/scripts/certs/SLACK_SETUP.md) for setup instructions.
 
 ### Manual Certificate Update
 
@@ -441,22 +452,31 @@ Client applications for end users:
 
 ## 🔒 Security Best Practices
 
+> [!CAUTION]
+> **Environment Files**: NEVER commit `.env` files to git repositories. All repositories have `.gitignore` configured to prevent this, but always verify before pushing. Environment files contain sensitive credentials (API tokens, database passwords, Slack webhooks) that must remain on the server only.
+
 1. **GitHub Tokens**:
    - Use fine-grained tokens with minimal permissions
    - Rotate tokens every 90 days
    - Never commit tokens to repositories
 
-2. **Certificates**:
+2. **Environment Files**:
+   - Keep `.env` files on servers only (never commit)
+   - Use `.env.example` as templates (safe to commit)
+   - Set proper permissions: `chmod 600 .env`
+   - Verify `.gitignore` excludes all `.env*` files
+
+3. **Certificates**:
    - Keep `mvpn-scripts` repository private
    - Set `privkey.pem` permissions to `600`
    - Monitor expiry dates
 
-3. **API Security**:
+4. **API Security**:
    - Use strong API tokens
    - Enable rate limiting
    - Monitor access logs
 
-4. **Server Hardening**:
+5. **Server Hardening**:
    - Enable UFW firewall
    - Configure fail2ban
    - Disable password authentication

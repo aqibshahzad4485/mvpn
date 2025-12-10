@@ -1,2 +1,16 @@
+# Environment files - NEVER commit these
 .env
+.env.*
 *.env
+!.env.example
+
+# Environment backups and local configs
+.env.local
+.env.backup
+.env.production
+.env.development
+.env.staging
+
+# Sensitive configuration files
+config.local.*
+secrets.*
