@@ -15,6 +15,12 @@
 
 set -e
 
+# Get script directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+# Source common environment helper library
+source "$SCRIPT_DIR/common-env.sh"
+
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -32,31 +38,30 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-# Validate required environment variables
-if [ -z "$GITHUB_TOKEN" ]; then
-    echo -e "${RED}Error: GITHUB_TOKEN environment variable is required${NC}"
-    echo -e "${YELLOW}Usage: GITHUB_TOKEN=ghp_xxx CF_TOKEN=xxx bash master.sh${NC}"
-    exit 1
-fi
+# Load .env file if it exists
+load_env_file || echo -e "${YELLOW}No .env file found, will use environment variables or prompt for values${NC}"
 
-if [ -z "$CF_TOKEN" ]; then
-    echo -e "${RED}Error: CF_TOKEN environment variable is required${NC}"
-    echo -e "${YELLOW}Get token from: https://dash.cloudflare.com/profile/api-tokens${NC}"
-    exit 1
-fi
+# Set defaults for optional variables
+set_default "VPN_DOMAIN" "vpn.aqibs.dev"
+set_default "CF_EMAIL" "aqib.shahzad4485@gmail.com"
+set_default "INSTALL_DIR" "/opt/git"
+set_default "GITHUB_ORG" "aqibshahzad4485"
 
-# Optional variables with defaults
-VPN_DOMAIN="${VPN_DOMAIN:-vpn.aqibs.dev}"
-CF_EMAIL="${CF_EMAIL:-aqib.shahzad4485@gmail.com}"
-INSTALL_DIR="/opt/git"
-GITHUB_ORG="aqibshahzad4485"
-
-echo -e "${YELLOW}Configuration:${NC}"
-echo "  Install Directory: $INSTALL_DIR"
-echo "  GitHub Org: $GITHUB_ORG"
-echo "  VPN Domain: $VPN_DOMAIN"
-echo "  Cloudflare Email: $CF_EMAIL"
+# Prompt for required variables if not set
 echo ""
+echo -e "${YELLOW}Checking required configuration...${NC}"
+prompt_if_missing "GITHUB_TOKEN" "GitHub Personal Access Token (with repo access)" "" "true" || exit 1
+prompt_if_missing "CF_TOKEN" "Cloudflare API Token" "" "true" || exit 1
+
+# Prompt for optional variables (with defaults already set)
+prompt_if_missing "VPN_DOMAIN" "VPN Domain" "$VPN_DOMAIN"
+prompt_if_missing "CF_EMAIL" "Cloudflare Email" "$CF_EMAIL"
+
+# Validate all required variables are set
+validate_required "GITHUB_TOKEN" "CF_TOKEN" "VPN_DOMAIN" "CF_EMAIL" || exit 1
+
+echo ""
+show_config "INSTALL_DIR" "GITHUB_ORG" "VPN_DOMAIN" "CF_EMAIL"
 
 # Create install directory
 mkdir -p "$INSTALL_DIR"

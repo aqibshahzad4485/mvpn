@@ -22,21 +22,21 @@ MVPN is a **complete VPN infrastructure system** that enables you to deploy and 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   MASTER SERVER                              │
+│                   MASTER SERVER                             │
 │  • Certificate Management (Let's Encrypt + Cloudflare)      │
 │  • Backend API (srvlist)                                    │
 │  • Monitoring Dashboard                                     │
-│  • Auto-sync certs to mvpn-scripts                         │
+│  • Auto-sync certs to VPNs(mvpn-scripts)                    │
 └─────────────────────────────────────────────────────────────┘
                            │
                            │ Git Push (certs)
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                   VPN NODES (Multiple)                       │
-│  • OpenVPN, WireGuard, Squid, V2Ray                        │
-│  • Monitoring Agent (heartbeat to master)                  │
-│  • Auto-update certificates                                │
-│  • User management per protocol                            │
+│                   VPN NODES (Multiple)                      │
+│  • OpenVPN, WireGuard, Squid, V2Ray                         │
+│  • Monitoring Agent (heartbeat to master)                   │
+│  • Auto-update certificates                                 │
+│  • User management per protocol                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -57,18 +57,31 @@ MVPN is a **complete VPN infrastructure system** that enables you to deploy and 
 
 ### Prerequisites
 
-- Ubuntu 20.04/22.04 LTS servers
+- Ubuntu 20.04/22.04 LTS servers(Master + Nodes)
 - Domain name (e.g., `yourdomain.com`)
 - Cloudflare account (for DNS + SSL)
 - GitHub account with private repositories
-- AWS account (optional, for S3 hosting)
 
 ### 1. Setup Master Server
 
-```bash
-# Create GitHub token with access to mvpn-backend and mvpn-scripts
-# Token needs: repo (full control)
+**Recommended: Using .env file**
 
+```bash
+# Clone the repository
+git clone https://github.com/aqibshahzad4485/mvpn.git
+cd mvpn
+
+# Copy and configure .env file
+cp .env.example .env
+nano .env  # Fill in GITHUB_TOKEN and CF_TOKEN
+
+# Run setup
+sudo bash master.sh
+```
+
+**Alternative: One-liner with environment variables**
+
+```bash
 GITHUB_TOKEN="yourtoken" \
 CF_TOKEN="yourcftoken" \
 bash <(curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/master.sh)
@@ -83,19 +96,38 @@ bash <(curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/ma
 
 ### 2. Deploy VPN Nodes
 
-```bash
-# Create GitHub token with read-only access to mvpn-scripts
-# Token needs: repo (read-only)
+**Recommended: Using .env file**
 
-curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/vpn.sh | \\\n  GITHUB_TOKEN=ghp_your_readonly_token \\\n  MASTER_API_URL=https://api.yourdomain.com \\\n  MASTER_API_TOKEN=your_api_token \\\n  bash
+```bash
+# Clone the repository
+git clone https://github.com/aqibshahzad4485/mvpn.git
+cd mvpn
+
+# Copy and configure .env file
+cp .env.example .env
+nano .env  # Fill in GITHUB_TOKEN and optionally MASTER_API_URL/TOKEN
+
+# Run setup
+sudo bash vpn.sh
 ```
 
-**What it does**:
-- Clones `mvpn-scripts` to `/opt/git/mvpn-scripts`
-- Installs selected VPN protocols
-- Installs monitoring agent
-- Registers with master server
-- Sets up automatic certificate updates
+The script will:
+1. Clone `mvpn-scripts` to `/opt/git/mvpn-scripts`
+2. Prompt you to select which protocols to install
+3. Prompt for domain (if installing V2Ray)
+4. Install selected VPN protocols
+5. Set up monitoring agent (if master API configured)
+
+**Alternative: One-liner with environment variables**
+
+```bash
+GITHUB_TOKEN=ghp_your_readonly_token \
+MASTER_API_URL=https://api.yourdomain.com \
+MASTER_API_TOKEN=your_api_token \
+INSTALL_TYPE=1 \
+DOMAIN=vpn.example.com \
+bash <(curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/vpn.sh)
+```
 
 ---
 
@@ -135,28 +167,48 @@ curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/vpn.sh | 
 
 ### Step 3: Configure Environment
 
-Create `.env` file from `.env.example`:
+**For Master Server:**
 
 ```bash
-# Company Branding
-COMPANY_NAME="Your VPN Company"
-COMPANY_DOMAIN="yourdomain.com"
-COMPANY_EMAIL="admin@yourdomain.com"
+cd mvpn
+cp .env.example .env
+nano .env
+```
 
-# VPN Domain
+Fill in the required values:
+
+```bash
+# REQUIRED
+GITHUB_TOKEN="ghp_your_token_here"
+CF_TOKEN="your_cloudflare_token"
+
+# Optional - Update if needed
+CF_EMAIL="your@email.com"
 VPN_DOMAIN="vpn.yourdomain.com"
-
-# Cloudflare
-CF_TOKEN="your_cloudflare_api_token"
-CF_EMAIL="admin@yourdomain.com"
-
-# GitHub
 GITHUB_ORG="your-github-username"
-GITHUB_TOKEN="ghp_your_token"
+```
 
-# Master Server
+**For VPN Servers:**
+
+```bash
+cd mvpn
+cp .env.example .env
+nano .env
+```
+
+Fill in the required values:
+
+```bash
+# REQUIRED
+GITHUB_TOKEN="ghp_readonly_token"
+
+# Optional - For monitoring
 MASTER_API_URL="https://api.yourdomain.com"
-MASTER_API_TOKEN="your_secure_api_token"
+MASTER_API_TOKEN="your_api_token"
+
+# Optional - For automated setup
+INSTALL_TYPE="1"  # 1=All, 2=OpenVPN, 3=WireGuard, 4=Squid, 5=V2Ray
+DOMAIN="vpn1.yourdomain.com"  # Required if installing V2Ray
 ```
 
 ### Step 4: Deploy Master Server
@@ -165,8 +217,14 @@ MASTER_API_TOKEN="your_secure_api_token"
 # SSH into your master server
 ssh root@master-server-ip
 
-# Run master setup script
-curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/master.sh | \\\n  GITHUB_TOKEN=ghp_xxx \\\n  CF_TOKEN=xxx \\\n  VPN_DOMAIN=vpn.yourdomain.com \\\n  bash
+# Clone and configure
+git clone https://github.com/aqibshahzad4485/mvpn.git
+cd mvpn
+cp .env.example .env
+nano .env  # Fill in GITHUB_TOKEN and CF_TOKEN
+
+# Run setup
+sudo bash master.sh
 
 # Verify installation
 systemctl status mvpn-api
@@ -180,8 +238,14 @@ ls -la /opt/git/mvpn-scripts/keys
 # SSH into your VPN server
 ssh root@vpn-server-ip
 
-# Run VPN setup script
-curl -fsSL https://raw.githubusercontent.com/aqibshahzad4485/mvpn/main/vpn.sh | \\\n  GITHUB_TOKEN=ghp_xxx \\\n  MASTER_API_URL=https://api.yourdomain.com \\\n  MASTER_API_TOKEN=xxx \\\n  bash
+# Clone and configure
+git clone https://github.com/aqibshahzad4485/mvpn.git
+cd mvpn
+cp .env.example .env
+nano .env  # Fill in GITHUB_TOKEN and optional settings
+
+# Run setup (will prompt for installation type and domain if needed)
+sudo bash vpn.sh
 
 # Verify installation
 systemctl status openvpn@server
