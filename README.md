@@ -262,8 +262,8 @@ systemctl status vpn-monitor
 ### Automatic Workflow
 
 1. **Master Server** generates certificates using Let's Encrypt + Cloudflare DNS
-2. **Sync Script** copies certificates to `mvpn-scripts/keys/`
-3. **Git Push** updates the mvpn-scripts repository
+2. **Auto-Push** automatically commits and pushes certificates to `mvpn-backend` repository
+3. **Sync Script** copies certificates to `mvpn-scripts/keys/` and pushes
 4. **VPN Nodes** pull updates every 2 months (via cron)
 
 ### Manual Certificate Update
@@ -271,7 +271,7 @@ systemctl status vpn-monitor
 **On Master Server**:
 ```bash
 cd /opt/git/mvpn-backend
-./scripts/certs/generate-certs.sh  # Generate/renew
+./scripts/certs/generate-certs.sh  # Generate/renew (auto-pushes to git)
 ./scripts/certs/sync-certs.sh      # Sync to mvpn-scripts
 ```
 
